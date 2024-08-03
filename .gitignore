@@ -166,3 +166,5 @@ cython_debug/
 ._.DS_Store
 ._*
 draft/
+data/*
+src/utilities/old_stuff.py

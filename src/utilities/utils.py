@@ -23,10 +23,14 @@ def run_command(command):
 def load_nifti_data(input_nii):
     return nib.load(input_nii).get_fdata()
 
-def dilate_mask(input_nii, output_nii, kernel_size):
-    command = f"fslmaths {input_nii} -kernel sphere {kernel_size} -dilD {output_nii}"
-    run_command(command)
-    return output_nii
+def dilate_mask(mask_nii, mask_dil_nii=None, kernel_radius=None, kernel_type=sitk.sitkBall):
+    mask = sitk.ReadImage(mask_nii)
+    if kernel_radius is not None:
+        kernel_radius = sitk.VectorUInt32([kernel_radius] * mask.GetDimension())
+    mask_dilated = sitk.BinaryDilate(mask, kernelRadius=kernel_radius, kernelType=kernel_type)
+    if mask_dil_nii:
+        sitk.WriteImage(mask_dilated, mask_dil_nii)
+    return mask_dilated
 
 def crop_image(reference_nii, mask_nii, cropped_nii):
     cal_roi = f"fslstats {mask_nii} -w"
@@ -35,14 +39,14 @@ def crop_image(reference_nii, mask_nii, cropped_nii):
     run_command(crp_roi)
     return cropped_nii
 
-def get_num_vols(input_nii):
-    input_img = nib.load(input_nii)
+def get_num_vols(input_img):
     return input_img.shape[3]
 
-def make_4d(input_img, num_vols):
-    img = input_img.get_fdata()
+def make_4d_mask(mask_nii, num_vols):
+    mask_img = nib.load(mask_nii)
+    img = mask_img.get_fdata()
     img_4d = np.repeat(img[..., np.newaxis], num_vols, axis=3)
-    img_4d_nii = nib.Nifti1Image(img_4d, input_img.affine, input_img.header)
+    img_4d_nii = nib.Nifti1Image(img_4d, mask_img.affine, mask_img.header)
     return img_4d_nii
 
 def split_to_3d(input_nii, prefix):
@@ -62,7 +66,7 @@ def apply_affine_transformation(reference_img_path, seg_img_path, affine_transfo
 
     sitk.WriteImage(resampled_img, output_img_path)    
        
-def del_dummy_scans(bold_img, nd):
+def del_dummy_scans(bold_img, nd=4):
     censored_img = np.delete(bold_img,np.arange(0,nd),3)
     return censored_img
 
@@ -82,6 +86,11 @@ def save_to_h5py(h5f, dataset_name, timeseries, derivative):
             del h5f[dataset_name + '_deriv']
         h5f.create_dataset(dataset_name, data=timeseries)
         h5f.create_dataset(dataset_name + '_deriv', data=derivative)
+        
+def get_subject_id(file_path):
+    subject_id = os.path.basename(os.path.dirname(file_path))
+    return subject_id
+    
 
 
 

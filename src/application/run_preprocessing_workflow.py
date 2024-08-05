@@ -43,7 +43,7 @@ def main():
     if not os.path.exists(output_path):
         os.mkdir(output_path)
         
-    # ---------------------- Read Data (!TO-DO: modular) -------------------
+    # ---------------------- Read Data (!TO-DO: modular) -------------
     
     dilation_radius=args.dilation_radius
     img = load_nifti_data(input_path)
@@ -53,6 +53,8 @@ def main():
     
     num_vol = get_num_vols(img)
     mask_dilated = dilate_mask(mask_path, os.path.join(output_path, sid + '_mask_dilated.nii.gz'), dilation_radius)
+    
+    # ---------------------- Bias Field Correction -------------------
     bold_bfc = os.path.join(output_path, sid + '_bfc.nii.gz')
     bias_field = os.path.join(output_path, sid + '_bias_field.nii.gz')
     n4_filter = N4BiasFieldCorrection()
@@ -67,9 +69,13 @@ def main():
         print(f"Elapsed time for bias field correction: {minutes} minutes and {seconds} seconds")
     except Exception as e:
         print(f"An error occurred in biad field correction: {e}")
+        
+    # ------------------ Volume-to-Volume Registration -------------------
     
-    # n4_filter.run_correction(input_path, mask_dilated,os.path.join(output_path, sid + '_bfc.nii.gz'),os.path.join(output_path, sid + '_bias_field.nii.gz'))
-    # mask_dilated_4d = make_4d_mask(mask_dilated, num_vol)
+    # --------------------- first reconstruction  ------------------------
+    
+    # ----- two-step slice-to-volume registration-reconstruction ---------
+    
     
     
 

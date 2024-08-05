@@ -30,6 +30,7 @@ def dilate_mask(mask_nii, mask_dil_nii=None, kernel_radius=None, kernel_type=sit
     mask_dilated = sitk.BinaryDilate(mask, kernelRadius=kernel_radius, kernelType=kernel_type)
     if mask_dil_nii:
         sitk.WriteImage(mask_dilated, mask_dil_nii)
+        return mask_dil_nii
     return mask_dilated
 
 def crop_image(reference_nii, mask_nii, cropped_nii):
@@ -77,7 +78,7 @@ def get_derivative(timeseries_1d):
 
 def save_to_h5py(h5f, dataset_name, timeseries, derivative):
     try:
-        h5f.create_dataset(dataset_name, data=stimeseries)
+        h5f.create_dataset(dataset_name, data=timeseries)
         h5f.create_dataset(dataset_name + '_deriv', data=derivative)
     except:
         if dataset_name in h5f:

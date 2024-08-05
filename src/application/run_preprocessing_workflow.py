@@ -20,7 +20,7 @@ from src.utilities.volumetric_registration_base import MotionCorrection
 
 def main():
     
-    time_start = time()
+    
     np.set_printoptions(precision=3)
     
     parser = ArgumentParser(description="Fetal rs-fMRI workflow", epilog='\n')

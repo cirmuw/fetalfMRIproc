@@ -16,6 +16,7 @@ from argparse import ArgumentParser
 from src.utilities.utils import *
 from src.utilities import *
 from src.utilities.bias_field_correction import N4BiasFieldCorrection
+from src.utilities.volumetric_registration_base import MotionCorrection
 
 def main():
     
@@ -75,7 +76,8 @@ def main():
     # --------------------- first reconstruction  ------------------------
     
     # ----- two-step slice-to-volume registration-reconstruction ---------
-    
+    v2vreg = MotionCorrection()
+    v2vreg._create_reference(bold_bfc, mask_dilated)
     
     
 

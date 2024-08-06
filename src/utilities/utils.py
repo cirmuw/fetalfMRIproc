@@ -91,6 +91,12 @@ def save_to_h5py(h5f, dataset_name, timeseries, derivative):
 def get_subject_id(file_path):
     subject_id = os.path.basename(os.path.dirname(file_path))
     return subject_id
+
+def get_filenames(filepath):
+        path, filename = os.path.split(filepath)
+        base, _ = os.path.splitext(filename)
+        base, _ = os.path.splitext(base)
+        return path, base
     
 
 

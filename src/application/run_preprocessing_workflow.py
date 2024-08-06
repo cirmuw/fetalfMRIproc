@@ -16,7 +16,7 @@ from argparse import ArgumentParser
 from src.utilities.utils import *
 from src.utilities import *
 from src.utilities.bias_field_correction import N4BiasFieldCorrection
-from src.utilities.volumetric_registration_base import MotionCorrection
+from src.utilities.base_motion_correction import MotionCorrection
 
 def main():
     
@@ -71,13 +71,39 @@ def main():
     except Exception as e:
         print(f"An error occurred in biad field correction: {e}")
         
-    # ------------------ Volume-to-Volume Registration -------------------
+    # ------------------ Basic (hierarchical) Motion Correction -------------------
+    motion_directory = os.path.join(output_path, 'motion_correction')
+    os.makedirs(motion_directory, exist_ok=True)
+    _, base = get_filenames(bold_bfc)
+    bold_img = nib.load(bold_bfc)
+    
+    motion_correction = MotionCorrection(
+        reference_volume=None,
+        registration_method='SimpleITK',
+        mask=mask_dilated,
+        verbose=True,
+        interleave_factor=3,
+        hierarchical=False,  
+        output_directory=motion_directory)
+    
+    motion_correction._create_reference(bold_bfc, mask_dilated)
+    
+    for vol in range(img.shape[-1]):
+        volume_data = img[..., vol]
+        volume_img = nib.Nifti1Image(volume_data, bold_img.affine, bold_img.header)
+        volume_nii = os.path.join(motion_directory, base + f"_vol{vol + 1:03d}.nii.gz")
+        nib.save(volume_img, volume_nii)
+        motion_correction._volumes.append(volume_nii)
     
     # --------------------- first reconstruction  ------------------------
     
     # ----- two-step slice-to-volume registration-reconstruction ---------
-    v2vreg = MotionCorrection()
-    v2vreg._create_reference(bold_bfc, mask_dilated)
+    
+    # ---------------------- Outlier Rejection ---------------------------
+    
+    # --------------------- Nuisance Regression --------------------------
+    
+    
     
     
 

@@ -4,7 +4,7 @@ import numpy as np
 import nibabel as nib
 import SimpleITK as sitk
 import subprocess
-from src.utilities.utils import load_nifti_data
+from src.utilities.utils import load_nifti_data , get_filenames
 
 
 class MotionCorrection:
@@ -14,7 +14,8 @@ class MotionCorrection:
                  mask=None,
                  verbose=False,
                  interleave_factor=3,
-                 hierarchical=True):
+                 hierarchical=True,
+                 output_directory='output'):
         self.reference_volume = reference_volume
         self.registration_method = registration_method
         self.mask = mask
@@ -22,7 +23,15 @@ class MotionCorrection:
         self.interleave_factor = interleave_factor
         self.hierarchical = hierarchical
         self._volumes = []
-        self._transformations = {}
+        self._transformations = {
+            'v2v': {},
+            'ss2v': {},  
+            's2v': {}   
+        }
+        self._warped_volumes = []
+        self._warped_slices = {}
+        self._warped_slice_sets = {}
+        self.output_directory = output_directory
         
     def _get_filenames(self, filepath):
         path, filename = os.path.split(filepath)
@@ -68,62 +77,43 @@ class MotionCorrection:
             path, base = self._get_filenames(bold_nii)
             nib.save(reference, os.path.join(path, f"{base}_reference.nii.gz"))
         print("Reference image generated and saved.")
+        self.reference_volume = reference
         
-    def _initialize_registration(self, fixed_image, moving_image, mask, registration_type):
-        if registration_type == 'SimpleITK':
-            return SimpleItkRegistration(
-                fixed=fixed_image,
-                moving=moving_image,
-                use_fixed_mask=True,
-                use_moving_mask=True,
-                registration_type="Affine",
-                interpolator="Linear",
-                metric="Correlation",
-                metric_params=None,
-                optimizer="RegularStepGradientDescent",
-                optimizer_params={
-                    "minStep": 1e-6,
-                    "numberOfIterations": 200,
-                    "gradientMagnitudeTolerance": 1e-6,
-                    "learningRate": 1
-                },
-                scales_estimator="PhysicalShift",
-                use_multiresolution_framework=True,
-                shrink_factors=[2, 1],
-                smoothing_sigmas=[1, 0],
-                use_verbose=self.verbose
-            )
-        elif registration_type == 'RegAladin':
-            return RegAladin(
-                fixed=fixed_image,
-                moving=moving_image,
-                use_fixed_mask=True,
-                use_moving_mask=True,
-                use_verbose=self.verbose,
-                options="-voff",
-                registration_type="Rigid"
-            )
-        elif registration_type == 'antsRegistration':
-            return ants.registration(
-                fixed=fixed_image,
-                moving=moving_image,
-                mask=mask,
-                type_of_transform="SyNOnly",
-                regIterations=(100, 75, 20, 0),
-                verbose=self.verbose
-            )
-        elif registration_type == 'flirt':
-            # Add FLIRT registration setup here
+    def _initialize_registration(self, registration_method):
+        if registration_method == 'SimpleITK':
+            reg = sitk.ImageRegistrationMethod()
+            reg.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50)
+            reg.SetInterpolator(sitk.sitkLinear)
+            reg.SetOptimizerAsGradientDescent(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
+            reg.SetOptimizerScalesFromPhysicalShift()
+            return reg
+        
+        # Placeholder for other registration methods
+        elif registration_method == 'RegAladin':
+            pass
+        elif registration_method == 'antsRegistration':
+            pass
+        elif registration_method == 'flirt':
             pass
         else:
             raise ValueError("Unsupported registration method.")
         
     def _save_transformations(self, transformations, suffix):
-        for name, transform in transformations.items():
-            path, base = self._get_filenames(name)
-            transform_path = os.path.join(path, f"{base}_{suffix}_transform.txt")
-            sitk.WriteTransform(transform, transform_path)
-            print(f"Transformation saved to {transform_path}")
+        if not os.path.exists(self.output_directory):
+            os.makedirs(self.output_directory)
+    
+        for volume_name, transform in transformations.items():
+            transform_filename = os.path.join(self.output_directory, f"{volume_name}_{suffix}.tfm")
+        
+            if isinstance(transform, sitk.Transform):
+                sitk.WriteTransform(transform, transform_filename)
+            elif isinstance(transform, ants.ANTsTransform):
+                pass
+            else:
+                raise ValueError("Unsupported transformation type for saving.")
+        
+            if self.verbose:
+                print(f"Transformation for {volume_name} saved as {transform_filename}")
             
     def _split_slices_based_on_interleave(self, slices):
         sub_volumes = []
@@ -132,24 +122,43 @@ class MotionCorrection:
             sub_volumes.append(slices[i:i+self.interleave])
         return sub_volumes
     
-    def _run_registration(self, fixed_image, moving_image, method, mask=None):
-        reg = self._initialize_registration(fixed_image, moving_image, mask, self.registration_method)
-        reg.set_fixed(fixed_image)
-        reg.set_moving(moving_image)
-        reg.run()
-        return reg.get_warped_moving_sitk(), reg.get_registration_transform_sitk()  
+    def _run_registration(self, fixed_image, moving_image, method, output_path, mask=None):
+        _, moving_name = get_filenames(moving_image)
+        
+        if method == 'SimpleITK':
+            fixed_image_sitk = sitk.ReadImage(fixed_image)
+            moving_image_sitk = sitk.ReadImage(moving_image)
+            mask_image_sitk = sitk.ReadImage(mask) if mask else None
+            initial_transform = sitk.CenteredTransformInitializer(fixed_image_sitk, 
+                                                                  moving_image_sitk, 
+                                                                  sitk.Euler3DTransform(), 
+                                                                  sitk.CenteredTransformInitializerFilter.GEOMETRY)
+            reg = self._initialize_registration(method)
+            reg.SetInitialTransform(initial_transform, inPlace=False)
+            if mask_image_sitk:
+                reg.SetMetricFixedMask(mask_image_sitk)
+
+            final_transform = reg.Execute(fixed_image_sitk, moving_image_sitk)
+
+            print("Optimizer stop condition: {0}".format(reg.GetOptimizerStopConditionDescription()))
+            print("Final metric value: {0}".format(reg.GetMetricValue()))
+
+            moving_resampled = sitk.Resample(moving_image_sitk, fixed_image_sitk, final_transform, sitk.sitkLinear, 0.0, moving_image_sitk.GetPixelID())
+            moving_resampled_nii = os.path.join(output_path, f"{moving_name}_warped.nii.gz")
+            sitk.WriteImage(moving_resampled, moving_resampled_nii)
+            return moving_resampled_nii, final_transform
     
-    def _volume_to_volume_registration(self):
-        v2v_transforms = {}
+    def _volume_to_volume_registration(self):    
         for i, volume in enumerate(self._volumes):
             txt = f"Volume-to-Volume Registration -- Volume {i + 1}/{len(self._volumes)}"
             if self.verbose:
                 print(txt)
+            _, volume_name = get_filenames(volume)
+            warped_volume, transform_sitk = self._run_registration(self.reference_volume, volume, self.registration_method, self.mask, self.output_directory)
+            self._warped_volumes.append(warped_volume)
+            self._transformations['v2v'][volume_name] = transform_sitk           
 
-            warped_volume, transform_sitk = self._run_registration(self.reference_volume, volume, self.registration_method, self.mask)
-            v2v_transforms[volume.get_filename()] = transform_sitk
-
-        self._save_transformations(v2v_transforms, 'v2v')
+        self._save_transformations(self._transformations['v2v'], 'v2v')
 
     def _slice_set_to_volume_registration(self):
         ss2v_transforms = {}

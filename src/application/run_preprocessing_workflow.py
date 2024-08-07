@@ -17,6 +17,7 @@ from src.utilities.utils import *
 from src.utilities import *
 from src.utilities.bias_field_correction import N4BiasFieldCorrection
 from src.utilities.base_motion_correction import MotionCorrection
+from src.utilities.volume_outlier_detection import OutlierDetection
 
 def main():
     
@@ -41,6 +42,7 @@ def main():
     logger.info('Input 3D brain mask: %s' % mask_path)
     logger.info('Output folder: %s' % output_path)
     sid = get_subject_id(input_path)
+    tr = get_repetition_time(input_path)
     if not os.path.exists(output_path):
         os.mkdir(output_path)
         
@@ -50,7 +52,7 @@ def main():
         img = del_dummy_scans(img)
     
     num_vol = get_num_vols(img)
-    tr = get_repetition_time(img)
+    
     dilation_radius=args.dilation_radius
     mask_dilated = dilate_mask(mask_path, os.path.join(output_path, sid + '_mask_dilated.nii.gz'), dilation_radius)
     
@@ -86,7 +88,6 @@ def main():
         repetition_time=tr,
         hierarchical=False,  
         output_directory=motion_directory)
-    motion_correction.reference_volume = '/Users/athena/Documents/CIRHome/FetalRestingStatefMRI/data/10021C75_20150108/test_out/10021C75_20150108_bfc_reference.nii.gz'
     
     motion_correction._create_reference(bold_bfc, mask_dilated)
     
@@ -94,7 +95,7 @@ def main():
         volume_data = img[..., vol]
         volume_img = nib.Nifti1Image(volume_data, bold_img.affine, bold_img.header)
         volume_nii = os.path.join(motion_directory, base + f"_vol{vol + 1:03d}.nii.gz")
-        #nib.save(volume_img, volume_nii)
+        nib.save(volume_img, volume_nii)
         motion_correction._volumes.append(volume_nii)
         
     motion_correction.run()
@@ -103,8 +104,12 @@ def main():
     
     # ----- two-step slice-to-volume registration-reconstruction ---------
     
-    # ---------------------- Outlier Rejection ---------------------------
-    
+    # ---------------------- Outlier Detection ---------------------------
+    outlier_detector = OutlierDetection(bold_bfc, mask_dilated, polort=0, normalize=True)
+    outlier_indices, volume_outliers = outlier_detector.run(
+        method='3dToutcount', 
+        q=0.001, 
+        threshold_fraction=0.03)  # indices starting from zero 
     # --------------------- Nuisance Regression --------------------------
     
     # --------------------- Temporal filtering ---------------------------

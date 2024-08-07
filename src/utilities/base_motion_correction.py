@@ -14,6 +14,7 @@ class MotionCorrection:
                  mask=None,
                  verbose=False,
                  interleave_factor=3,
+                 repetition_time=1.0,
                  hierarchical=True,
                  output_directory='output'):
         self.reference_volume = reference_volume
@@ -21,6 +22,7 @@ class MotionCorrection:
         self.mask = mask
         self.verbose = verbose
         self.interleave_factor = interleave_factor
+        self.repetition_time = repetition_time
         self.hierarchical = hierarchical
         self._volumes = []
         self._transformations = {
@@ -75,9 +77,10 @@ class MotionCorrection:
             nib.save(reference, ref_nii)
         else:
             path, base = self._get_filenames(bold_nii)
-            nib.save(reference, os.path.join(path, f"{base}_reference.nii.gz"))
+            ref_nii = os.path.join(path, f"{base}_reference.nii.gz")
+            nib.save(reference, ref_nii)
         print("Reference image generated and saved.")
-        self.reference_volume = reference
+        self.reference_volume = ref_nii
         
     def _initialize_registration(self, registration_method):
         if registration_method == 'SimpleITK':
@@ -122,8 +125,27 @@ class MotionCorrection:
             sub_volumes.append(slices[i:i+self.interleave])
         return sub_volumes
     
-    def _run_registration(self, fixed_image, moving_image, method, output_path, mask=None):
-        _, moving_name = get_filenames(moving_image)
+    def _merge_corrected_volumes(self):
+        if not self._warped_volumes:
+            raise ValueError("There are no corrected volumes to merge.")
+        corrected_vols = [sitk.ReadImage(vol) for vol in self._warped_volumes]
+        _, base_name = self._get_filenames(self._warped_volumes[0])
+        input_name = '_'.join(base_name.split('_')[:-2])
+        
+        corrected_4d = sitk.JoinSeries(corrected_vols)
+        original_spacing = corrected_vols[0].GetSpacing()
+        original_origin = corrected_vols[0].GetOrigin()
+        corrected_4d.SetSpacing((*original_spacing, self.repetition_time))
+        corrected_4d.SetOrigin((*original_origin, 0.0))
+        
+        output_4d_path = os.path.join(self.output_directory, input_name + '_mc.nii.gz')
+        sitk.WriteImage(corrected_4d, output_4d_path)
+        
+        print(f"Motion corrected BOLD image saved at: {output_4d_path}")
+        return output_4d_path
+    
+    def _run_registration(self, fixed_image, moving_image, mask, method, output_path):
+        _, moving_name = self._get_filenames(moving_image)
         
         if method == 'SimpleITK':
             fixed_image_sitk = sitk.ReadImage(fixed_image)
@@ -153,8 +175,10 @@ class MotionCorrection:
             txt = f"Volume-to-Volume Registration -- Volume {i + 1}/{len(self._volumes)}"
             if self.verbose:
                 print(txt)
-            _, volume_name = get_filenames(volume)
-            warped_volume, transform_sitk = self._run_registration(self.reference_volume, volume, self.registration_method, self.mask, self.output_directory)
+            if not os.path.isfile(volume):
+                raise ValueError(f"Volume path is not a valid file: {volume}")
+            _, volume_name = self._get_filenames(volume)
+            warped_volume, transform_sitk = self._run_registration(self.reference_volume, volume, self.mask, self.registration_method, self.output_directory)
             self._warped_volumes.append(warped_volume)
             self._transformations['v2v'][volume_name] = transform_sitk           
 
@@ -200,5 +224,6 @@ class MotionCorrection:
         else:
             print("Starting volume-to-volume registration...")
             self._volume_to_volume_registration()
+            self._merge_corrected_volumes()
 
         print("Registration completed.")

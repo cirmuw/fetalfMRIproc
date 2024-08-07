@@ -43,6 +43,10 @@ def crop_image(reference_nii, mask_nii, cropped_nii):
 def get_num_vols(input_img):
     return input_img.shape[3]
 
+def get_repetition_time(bold_nii):
+    bold_img = nib.load(bold_nii)
+    return bold_img.header['pixdim'][4]
+
 def make_4d_mask(mask_nii, num_vols):
     mask_img = nib.load(mask_nii)
     img = mask_img.get_fdata()
@@ -97,6 +101,9 @@ def get_filenames(filepath):
         base, _ = os.path.splitext(filename)
         base, _ = os.path.splitext(base)
         return path, base
+    
+
+
     
 
 

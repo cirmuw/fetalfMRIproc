@@ -45,14 +45,13 @@ def main():
         os.mkdir(output_path)
         
     # ---------------------- Read Data (!TO-DO: modular) -------------
-    
-    dilation_radius=args.dilation_radius
     img = load_nifti_data(input_path)
-    
     if args.dummy_frames:
         img = del_dummy_scans(img)
     
     num_vol = get_num_vols(img)
+    tr = get_repetition_time(img)
+    dilation_radius=args.dilation_radius
     mask_dilated = dilate_mask(mask_path, os.path.join(output_path, sid + '_mask_dilated.nii.gz'), dilation_radius)
     
     # ---------------------- Bias Field Correction -------------------
@@ -76,6 +75,7 @@ def main():
     os.makedirs(motion_directory, exist_ok=True)
     _, base = get_filenames(bold_bfc)
     bold_img = nib.load(bold_bfc)
+    img = bold_img.get_fdata()
     
     motion_correction = MotionCorrection(
         reference_volume=None,
@@ -83,8 +83,10 @@ def main():
         mask=mask_dilated,
         verbose=True,
         interleave_factor=3,
+        repetition_time=tr,
         hierarchical=False,  
         output_directory=motion_directory)
+    motion_correction.reference_volume = '/Users/athena/Documents/CIRHome/FetalRestingStatefMRI/data/10021C75_20150108/test_out/10021C75_20150108_bfc_reference.nii.gz'
     
     motion_correction._create_reference(bold_bfc, mask_dilated)
     
@@ -92,8 +94,10 @@ def main():
         volume_data = img[..., vol]
         volume_img = nib.Nifti1Image(volume_data, bold_img.affine, bold_img.header)
         volume_nii = os.path.join(motion_directory, base + f"_vol{vol + 1:03d}.nii.gz")
-        nib.save(volume_img, volume_nii)
+        #nib.save(volume_img, volume_nii)
         motion_correction._volumes.append(volume_nii)
+        
+    motion_correction.run()
     
     # --------------------- first reconstruction  ------------------------
     
@@ -102,6 +106,8 @@ def main():
     # ---------------------- Outlier Rejection ---------------------------
     
     # --------------------- Nuisance Regression --------------------------
+    
+    # --------------------- Temporal filtering ---------------------------
     
     
     

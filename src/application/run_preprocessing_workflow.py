@@ -1,6 +1,6 @@
 ##
 # \file run_preprocessing_workflow.py
-# \brief      Script to preprocess a raw in-utero fmri image (4d) and derive 
+# \brief      Script to preprocess raw in-utero fmri images (4d) and derive 
 #             clean timeseries
 #
 # \author     Athena Taymourtash (athena.taymourtash@meduniwien.ac.at)
@@ -18,6 +18,7 @@ from src.utilities import *
 from src.utilities.bias_field_correction import N4BiasFieldCorrection
 from src.utilities.base_motion_correction import MotionCorrection
 from src.utilities.volume_outlier_detection import OutlierDetection
+from src.utilities.spike_rejection import SpikeRejection
 
 def main():
     
@@ -54,7 +55,8 @@ def main():
     num_vol = get_num_vols(img)
     
     dilation_radius=args.dilation_radius
-    mask_dilated = dilate_mask(mask_path, os.path.join(output_path, sid + '_mask_dilated.nii.gz'), dilation_radius)
+    #mask_dilated = dilate_mask(mask_path, os.path.join(output_path, sid + '_mask_dilated.nii.gz'), dilation_radius)
+    mask_dilated = os.path.join(output_path, sid + '_mask_dilated.nii.gz')
     
     # ---------------------- Bias Field Correction -------------------
     bold_bfc = os.path.join(output_path, sid + '_bfc.nii.gz')
@@ -104,12 +106,15 @@ def main():
     
     # ----- two-step slice-to-volume registration-reconstruction ---------
     
-    # ---------------------- Outlier Detection ---------------------------
+    # ------------- Spike Rejection & Outlier Detection ------------------
+    despiker = SpikeRejection(bold_bfc, )
+    
     outlier_detector = OutlierDetection(bold_bfc, mask_dilated, polort=0, normalize=True)
     outlier_indices, volume_outliers = outlier_detector.run(
         method='3dToutcount', 
         q=0.001, 
         threshold_fraction=0.03)  # indices starting from zero 
+    
     # --------------------- Nuisance Regression --------------------------
     
     # --------------------- Temporal filtering ---------------------------

@@ -19,6 +19,7 @@ from src.utilities.bias_field_correction import N4BiasFieldCorrection
 from src.utilities.base_motion_correction import MotionCorrection
 from src.utilities.volume_outlier_detection import OutlierDetection
 from src.utilities.spike_rejection import SpikeRejection
+from src.utilities.temporal_filtering import TemporalFiltering
 
 def main():
     
@@ -55,8 +56,7 @@ def main():
     num_vol = get_num_vols(img)
     
     dilation_radius=args.dilation_radius
-    #mask_dilated = dilate_mask(mask_path, os.path.join(output_path, sid + '_mask_dilated.nii.gz'), dilation_radius)
-    mask_dilated = os.path.join(output_path, sid + '_mask_dilated.nii.gz')
+    mask_dilated = dilate_mask(mask_path, os.path.join(output_path, sid + '_mask_dilated.nii.gz'), dilation_radius)
     
     # ---------------------- Bias Field Correction -------------------
     bold_bfc = os.path.join(output_path, sid + '_bfc.nii.gz')
@@ -102,14 +102,13 @@ def main():
         
     motion_correction.run()
     
-    # --------------------- first reconstruction  ------------------------
-    
     # ----- two-step slice-to-volume registration-reconstruction ---------
     
     # ------------- Spike Rejection & Outlier Detection ------------------
-    despiker = SpikeRejection(bold_bfc, )
+    spike_rejector = SpikeRejection(bold_bfc, mask_dilated)
+    bold_dspk, spikes_mask = spike_rejector.despike()
     
-    outlier_detector = OutlierDetection(bold_bfc, mask_dilated, polort=0, normalize=True)
+    outlier_detector = OutlierDetection(bold_dspk, mask_dilated, polort=0, normalize=True)
     outlier_indices, volume_outliers = outlier_detector.run(
         method='3dToutcount', 
         q=0.001, 
@@ -118,7 +117,8 @@ def main():
     # --------------------- Nuisance Regression --------------------------
     
     # --------------------- Temporal filtering ---------------------------
-    
+    temporal_filter = TemporalFiltering(bold_bfc, TR=2.0, lowcut=0.001, highcut=0.01, filter_type='dct', order=5)
+    bold_filtered = temporal_filter.apply_filter()
     
     
     

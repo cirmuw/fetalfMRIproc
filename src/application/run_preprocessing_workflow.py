@@ -19,7 +19,9 @@ from src.utilities.bias_field_correction import N4BiasFieldCorrection
 from src.utilities.base_motion_correction import MotionCorrection
 from src.utilities.volume_outlier_detection import OutlierDetection
 from src.utilities.spike_rejection import SpikeRejection
+from src.utilities.nuisance_regressor import NuisanceRegressor
 from src.utilities.temporal_filtering import TemporalFiltering
+
 
 def main():
     
@@ -31,9 +33,19 @@ def main():
     parser.add_argument('--input-mask', required=True, type=str)
     parser.add_argument('--output', required=True, type=str)
     parser.add_argument('--T2-to-bold', required=True, type=str)
-    parser.add_argument('--v2v-method', required=False, type=str, default="RegAladin")
+    parser.add_argument('--is-inverse', required=False, type=bool, default=False)
+    parser.add_argument('--segmentation', required=False, type=str)
+    parser.add_argument('--parcellation', required=False, type=str)
+    parser.add_argument('--registration-method', required=False, type=str, default="SimpleITK")
+    parser.add_argument('--registration-type', required=False, type=str, default='rigid')
+    parser.add_argument('--n4filter', required=False, type=str, default='SimpleITK')
+    parser.add_argument('--spike', required=False, type=str, default='pyth')
+    parser.add_argument('--outlier', required=False, type=str, default='old')
+    parser.add_argument('--temporal-filter', required=False, type=str, default='dct')
     parser.add_argument('--dummy-frames', required=False, type=int, default=0)
     parser.add_argument('--dilation-radius', required=False, type=int, default=5)
+    
+    
     
     args = parser.parse_args()
     

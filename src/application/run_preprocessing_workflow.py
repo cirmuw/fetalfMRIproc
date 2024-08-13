@@ -4,11 +4,10 @@
 #             clean timeseries
 #
 # \author     Athena Taymourtash (athena.taymourtash@meduniwien.ac.at)
-# \date       February 2021
+# \date       August 2024
 #
 import os
 import sys
-sys.path.append('/Users/athena/Documents/CIRHome/FetalRestingStatefMRI')
 import numpy as np
 from time import time
 from loguru import logger
@@ -162,10 +161,11 @@ def main():
                                        mask_dilated, 
                                        seg_resampled,
                                        motion_directory,  
+                                       volume_outliers,
+                                       num_components,
                                        wm_labels=LABELS['white_matter'], 
                                        csf_labels=LABELS['csf'],
-                                       volume_outliers,
-                                       num_components)
+                                       )
 
     regressors = nuisance_regressor.x
 

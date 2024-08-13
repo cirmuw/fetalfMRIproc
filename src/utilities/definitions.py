@@ -5,3 +5,7 @@ HOME_FOLDER = '/Users/athena/Documents/CIRHome/PreprocWorkflow'
 WORKSPACE_FOLDER = os.path.join(HOME_FOLDER, 'workspace')
 
 NIFTYREG_PATH = os.path.join(WORKSPACE_FOLDER, 'third-party', 'niftyreg', 'build', 'reg-apps')
+LABELS = {
+    'white_matter': [120, 121],  
+    'csf': [124]
+}

@@ -5,7 +5,7 @@ from scipy.stats import median_abs_deviation
 import nibabel as nib
 
 class SpikeRejection:
-    def __init__(self, bold_nii, mask_nii=None, c1=2.5, c2=4.0, corder=None, method='old'):
+    def __init__(self, bold_nii, mask_nii=None, method = 'Lfit', c1=2.5, c2=4.0, corder=None):
         self.bold_nii = bold_nii
         self.mask_nii = mask_nii
         self.c1 = c1
@@ -102,7 +102,8 @@ class SpikeRejection:
             self.despike_afni(despiked_nii_output)
             # AFNI does not produce a spike mask, so we won't generate one here.
             return despiked_nii_output, None
-        else:
+        
+        elif self.method == 'Lfit':
             despiked_img = np.copy(self.img)
             spikes_mask = np.zeros_like(self.img, dtype=bool)
         
@@ -119,6 +120,11 @@ class SpikeRejection:
 
             spikes_img_nib = nib.Nifti1Image(inverted_spikes_mask, self.affine, self.header)
             nib.save(spikes_img_nib, spike_mask_nii_output)
-
             return spikes_img_nib, spike_mask_nii_output
+        
+        else:
+            raise ValueError("Unsupported method of despiking. Use 'Lfit' or 'afni'.")
+            
+            
+        
         

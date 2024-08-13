@@ -1,13 +1,26 @@
+import os
 import numpy as np
 import nibabel as nib
 from scipy.stats import norm
 
 class OutlierDetection:
-    def __init__(self, bold_nii, mask_nii=None, polort=0, normalize=False):
+    def __init__(self, 
+                 bold_nii, 
+                 mask_nii=None, 
+                 method='pyToutcount', 
+                 normalize=False, 
+                 dvars_thr =None, 
+                 fraction_thr=0.03,
+                 polort=0,
+                 qthr = 0.001):
         self.bold_nii = bold_nii
         self.mask_nii = mask_nii
+        self.method = method
         self.polort = polort
+        self.qthr = qthr
         self.normalize = normalize
+        self.dvars_thr = dvars_thr
+        self.fraction_thr = fraction_thr
         self.img, self.mask = self._load_data()
         self.voxel_timeseries = self._prepare_timeseries()
         
@@ -26,9 +39,15 @@ class OutlierDetection:
     def _prepare_timeseries(self):
         return self.img[self.mask].reshape(-1, self.img.shape[-1])
     
+    def _get_filenames(self, filepath):
+        path, filename = os.path.split(filepath)
+        base, _ = os.path.splitext(filename)
+        base, _ = os.path.splitext(base)
+        return path, base
+    
     def detrend(self):
         if self.polort > 0:
-            x = np.arange(self.data.shape[-1])
+            x = np.arange(self.img.shape[-1])
             for degree in range(self.polort + 1):
                 trend = np.polyval(np.polyfit(x, self.voxel_timeseries.T, degree), x)
                 self.voxel_timeseries -= trend.T
@@ -39,7 +58,8 @@ class OutlierDetection:
     def calculate_mad(self):
         return np.median(np.abs(self.voxel_timeseries - np.median(self.voxel_timeseries, axis=1, keepdims=True)), axis=1)
     
-    def detect_outliers_afni(self, q=0.001):
+    def detect_outliers_afni(self):
+        q = self.qthr
         mad = self.calculate_mad()
         
         N = self.img.shape[-1]
@@ -63,7 +83,8 @@ class OutlierDetection:
         dvars = np.sqrt(np.mean(diff_ts**2, axis=0))
         return dvars
     
-    def mark_outlier_volumes_afni(self, outliers, fraction=0.03):
+    def mark_outlier_volumes_afni(self, outliers):
+        fraction = self.fraction_thr
         outlier_fractions = np.mean(outliers, axis=0)
         volume_outliers = outlier_fractions > fraction
         outlier_indices = np.where(volume_outliers)[0]
@@ -75,19 +96,30 @@ class OutlierDetection:
         outlier_indices = np.where(volume_outliers)[0]
         return outlier_indices, volume_outliers
     
-    def run(self, method='3dToutcount', q=0.001, threshold_fraction=0.03, dvars_threshold=None):
-        self.detrend()
+    def _save_outlier_indices(self, outlier_indices):
+        path, base = self._get_filenames(self.bold_nii)
+        filename = f"{base}_outvols_{self.method}.txt"
+        output_file = os.path.join(path, filename)
+        np.savetxt(output_file, outlier_indices, fmt='%d')
         
-        if method == '3dToutcount':
-            outliers = self.detect_outliers_afni(q)
-            outlier_indices, volume_outliers = self.mark_outlier_volumes_afni(outliers, threshold_fraction)
-        elif method == 'dvars':
+        print(f"Volume outlier indices saved to {output_file}")
+    
+    def run(self):
+        if self.method == 'pyToutcount':
+            self.detrend()
+            outliers = self.detect_outliers_afni()
+            outlier_indices, volume_outliers = self.mark_outlier_volumes_afni(outliers)
+        elif self.method == 'dvars':
             dvars = self.calculate_dvars()
-            if dvars_threshold is None:
+            if self.dvars_thr is None:
                 dvars_threshold = np.mean(dvars) + 2 * np.std(dvars)  # Default threshold: mean + 2*std
+            else:
+                dvars_threshold = self.dvars_thr
             outlier_indices, volume_outliers = self.mark_outlier_volumes_dvars(dvars, dvars_threshold)
         else:
-            raise ValueError(f"Unknown method: {method}")
+            raise ValueError(f"Unknown method: {self.method}")
+        
+        self._save_outlier_indices(outlier_indices)
         
         return outlier_indices, volume_outliers
         

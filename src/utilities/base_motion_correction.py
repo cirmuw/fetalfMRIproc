@@ -10,15 +10,18 @@ from src.utilities.utils import load_nifti_data , get_filenames
 class MotionCorrection:
     def __init__(self,
                  reference_volume=None,
+                 motion_corrected_nii=None,
                  registration_method='SimpleITK',
+                 registration_type='rigid',
                  mask=None,
-                 verbose=False,
+                 verbose=True,
                  interleave_factor=3,
                  repetition_time=1.0,
                  hierarchical=True,
-                 output_directory='output'):
+                 motion_directory='motion_correction'):
         self.reference_volume = reference_volume
         self.registration_method = registration_method
+        self.registration_type = registration_type
         self.mask = mask
         self.verbose = verbose
         self.interleave_factor = interleave_factor
@@ -33,7 +36,8 @@ class MotionCorrection:
         self._warped_volumes = []
         self._warped_slices = {}
         self._warped_slice_sets = {}
-        self.output_directory = output_directory
+        self.motion_corrected_bold = motion_corrected_nii
+        self.motion_directory = motion_directory
         
     def _get_filenames(self, filepath):
         path, filename = os.path.split(filepath)
@@ -42,9 +46,8 @@ class MotionCorrection:
         return path, base
     
     def _create_reference(self, bold_nii, mask_nii, ref_nii=None):
-        bold_img = nib.load(bold_nii)
-        img = load_nifti_data(bold_nii)
-        mask = load_nifti_data(mask_nii)
+        img, affine, header = load_nifti_data(bold_nii)
+        mask = load_nifti_data(mask_nii)[0]
         
         if mask.shape != img.shape[:3]:
             raise ValueError("Mask dimensions do not match the input image dimensions.")
@@ -69,10 +72,10 @@ class MotionCorrection:
         valid_indices = np.where(mse <= thr)[0]
         ref_img = img[..., valid_indices]
         ref_img = np.mean(ref_img, axis=3)
-        ref_header = bold_img.header.copy()
+        ref_header = header.copy()
         ref_header['dim'][0] = 3 
         ref_header['dim'][4] = 1  
-        reference = nib.Nifti1Image(ref_img, bold_img.affine, ref_header)
+        reference = nib.Nifti1Image(ref_img, affine, ref_header)
         if ref_nii:
             nib.save(reference, ref_nii)
         else:
@@ -87,7 +90,12 @@ class MotionCorrection:
             reg = sitk.ImageRegistrationMethod()
             reg.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50)
             reg.SetInterpolator(sitk.sitkLinear)
-            reg.SetOptimizerAsGradientDescent(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
+            reg.SetOptimizerAsGradientDescent(
+                learningRate=1.0, 
+                numberOfIterations=100, 
+                convergenceMinimumValue=1e-6, 
+                convergenceWindowSize=10
+                )
             reg.SetOptimizerScalesFromPhysicalShift()
             return reg
         
@@ -102,11 +110,11 @@ class MotionCorrection:
             raise ValueError("Unsupported registration method.")
         
     def _save_transformations(self, transformations, suffix):
-        if not os.path.exists(self.output_directory):
-            os.makedirs(self.output_directory)
+        if not os.path.exists(self.motion_directory):
+            os.makedirs(self.motion_directory)
     
         for volume_name, transform in transformations.items():
-            transform_filename = os.path.join(self.output_directory, f"{volume_name}_{suffix}.tfm")
+            transform_filename = os.path.join(self.motion_directory, f"{volume_name}_{suffix}.tfm")
         
             if isinstance(transform, sitk.Transform):
                 sitk.WriteTransform(transform, transform_filename)
@@ -134,38 +142,60 @@ class MotionCorrection:
         
         corrected_4d = sitk.JoinSeries(corrected_vols)
         original_spacing = corrected_vols[0].GetSpacing()
-        original_origin = corrected_vols[0].GetOrigin()
-        corrected_4d.SetSpacing((*original_spacing, self.repetition_time))
-        corrected_4d.SetOrigin((*original_origin, 0.0))
+        new_spacing = tuple(original_spacing) + (float(self.repetition_time),)
+        corrected_4d.SetSpacing(new_spacing)
         
-        output_4d_path = os.path.join(self.output_directory, input_name + '_mc.nii.gz')
+        if self.motion_corrected_bold:
+            output_4d_path = self.motion_corrected_bold
+        else:
+            output_4d_path = os.path.join(self.motion_directory, input_name + '_mc.nii.gz')
         sitk.WriteImage(corrected_4d, output_4d_path)
         
         print(f"Motion corrected BOLD image saved at: {output_4d_path}")
         return output_4d_path
     
-    def _run_registration(self, fixed_image, moving_image, mask, method, output_path):
+    def _run_registration(self, fixed_image, moving_image, mask, method, type, output_path):
         _, moving_name = self._get_filenames(moving_image)
         
         if method == 'SimpleITK':
             fixed_image_sitk = sitk.ReadImage(fixed_image)
             moving_image_sitk = sitk.ReadImage(moving_image)
             mask_image_sitk = sitk.ReadImage(mask) if mask else None
-            initial_transform = sitk.CenteredTransformInitializer(fixed_image_sitk, 
+            if type == 'rigid':
+                initial_transform = sitk.CenteredTransformInitializer(fixed_image_sitk, 
                                                                   moving_image_sitk, 
                                                                   sitk.Euler3DTransform(), 
                                                                   sitk.CenteredTransformInitializerFilter.GEOMETRY)
+            elif type == 'affine':
+                initial_transform = sitk.CenteredTransformInitializer(fixed_image_sitk, 
+                                                                  moving_image_sitk, 
+                                                                  sitk.AffineTransform(fixed_image_sitk.GetDimension()), 
+                                                                  sitk.CenteredTransformInitializerFilter.GEOMETRY)
+            else:
+                raise ValueError("Unsupported registration type. Use 'rigid' or 'affine'.")    
+            
             reg = self._initialize_registration(method)
             reg.SetInitialTransform(initial_transform, inPlace=False)
             if mask_image_sitk:
                 reg.SetMetricFixedMask(mask_image_sitk)
 
-            final_transform = reg.Execute(fixed_image_sitk, moving_image_sitk)
+            try:
+                final_transform = reg.Execute(fixed_image_sitk, moving_image_sitk)
+            except Exception as e:
+                print(f"Registration failed: {e}")
+                return None, None
 
             print("Optimizer stop condition: {0}".format(reg.GetOptimizerStopConditionDescription()))
             print("Final metric value: {0}".format(reg.GetMetricValue()))
 
-            moving_resampled = sitk.Resample(moving_image_sitk, fixed_image_sitk, final_transform, sitk.sitkLinear, 0.0, moving_image_sitk.GetPixelID())
+            moving_resampled = sitk.Resample(
+                moving_image_sitk, 
+                fixed_image_sitk, 
+                final_transform, 
+                sitk.sitkLinear, 
+                0.0, 
+                moving_image_sitk.GetPixelID()
+                )
             moving_resampled_nii = os.path.join(output_path, f"{moving_name}_warped.nii.gz")
             sitk.WriteImage(moving_resampled, moving_resampled_nii)
             return moving_resampled_nii, final_transform
@@ -178,7 +208,7 @@ class MotionCorrection:
             if not os.path.isfile(volume):
                 raise ValueError(f"Volume path is not a valid file: {volume}")
             _, volume_name = self._get_filenames(volume)
-            warped_volume, transform_sitk = self._run_registration(self.reference_volume, volume, self.mask, self.registration_method, self.output_directory)
+            warped_volume, transform_sitk = self._run_registration(self.reference_volume, volume, self.mask, self.registration_method, self.registration_type, self.motion_directory)
             self._warped_volumes.append(warped_volume)
             self._transformations['v2v'][volume_name] = transform_sitk           
 

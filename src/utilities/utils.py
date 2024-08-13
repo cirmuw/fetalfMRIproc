@@ -21,7 +21,11 @@ def run_command(command):
         raise
     
 def load_nifti_data(input_nii):
-    return nib.load(input_nii).get_fdata()
+    input_img = nib.load(input_nii)
+    img = input_img.get_fdata()
+    affine = input_img.affine
+    header = input_img.header
+    return img, affine, header
 
 def dilate_mask(mask_nii, mask_dil_nii=None, kernel_radius=None, kernel_type=sitk.sitkBall):
     mask = sitk.ReadImage(mask_nii)

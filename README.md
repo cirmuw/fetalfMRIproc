@@ -44,21 +44,34 @@ python run_preprocessing_workflow.py \
     --dilation-radius <radius> \
     --interleave-factor <factor>
 ```
+--- 
+
 ### Installation
-1. Clone the repository to your local machine:
+
+This toolkit is **Python-based**, requiring no external neuroimaging software for core functionality. However, tools like **NiftyReg**, **FSL**, **AFNI**, and **ANTs** can be integrated for advanced features if installed.
+
+**Basic Installation**
+
+1. Clone the repository to your local machine and and install dependencies:
     ```bash
     git clone https://github.com/cirmuw/fetalfMRIproc.git
     cd fetalfMRIproc
+    pip install -r requirements.txt
     ```
 2. (Optional) Set up a virtual environment:
     ```bash
     python -m venv env
     source env/bin/activate
     ```
-3. Install the required packages:
+
+**Basic Installation**
+If you wish to use **NiftyReg**, **FSL**, **AFNI**, or **ANTs**, install them separately and update paths in `definitions.py`:
     ```bash
-    pip install -r requirements.txt
+    FSL_PATH = "/path/to/fsl"
+    AFNI_PATH = "/path/to/afni"
+    ANTS_PATH = "/path/to/ants"
     ```
+
 ### How to cite
 If you use this code in your work for preprocessing funtional MRI, performing automated QC, or simulating BOLD signal, please cite the following paper:
 

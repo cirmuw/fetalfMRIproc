@@ -63,13 +63,8 @@ pip install -r requirements.txt
 
 **Optional: Integrating Neuroimaging Tools**
 
-If you wish to use **NiftyReg**, **FSL**, **AFNI**, or **ANTs**, install them separately and update paths in `definitions.py`:
-```bash
-FSL_PATH = "/path/to/fsl/bin"
-AFNI_PATH = "/path/to/afni/bin"
-ANTS_PATH = "/path/to/ants/bin"
-NIFTYREG_PATH = "/path/to/niftyreg/bin"
-```
+If you wish to use **NiftyReg**, **FSL**, **AFNI**, or **ANTs**, install them separately and update paths in `src/utilities/definitions.py`:
+
 --- 
 ### How to cite
 If you use this code in your work for preprocessing funtional MRI, performing automated QC, or simulating BOLD signal, please cite the following paper:

@@ -1,15 +1,15 @@
 # Fetal rs-fMRI
 A Python-based, open-source toolkit for the analysis of in-utero fetal resting-state fMRI (rs-fMRI) data. This toolkit provides a flexible, modular workflow for preprocessing, quality control, simulation, and connectivity analysis, with optional integration of external neuroimaging tools like FSL, AFNI, and ANTs. 
 
-If you have any questions or comments, please drop an email to `georg.langs@meduniwien.ac.at`.
-
 ### Key Features
 
-* **Modular Preprocessing Pipeline**: Bias field correction, motion correction, despiking, volume outlier rejection, nuisance regression, and temporal filtering.
-* **Quality Control**: Automated quality-control report for a single subject.
+* **Modular Preprocessing Pipeline**: We implemented the entire preprocessing workflow including bias field correction, motion correction, despiking, volume outlier rejection, nuisance regression, and temporal filtering. Each step is modular, allowing users to choose and configure methods based on their specific needs.
+* **Quality Control**: Automated quality-control report for a single subject including visual and quantitative metrics to assess preprocessing effectiveness and data quality.
 * **Connectivity Analysis**: Extraction of ROI time series and performing functional connectivity analysis.
 * **Hemodynamic Response Simulation**: 
 * **Optional Integration of neuroimaging tools**: Compatible with FSL, AFNI, and ANTs if installed (see below for details).
+
+If you have any questions or comments, please drop an email to `georg.langs@meduniwien.ac.at`.
 
 ---
 

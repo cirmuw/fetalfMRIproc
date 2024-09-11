@@ -54,20 +54,21 @@ This toolkit is **python-based**, requiring no external neuroimaging software fo
 
 Clone the repository to your local machine, set up a virtual environment and and install dependencies:
 ```bash
-    git clone https://github.com/cirmuw/fetalfMRIproc.git
-    cd fetalfMRIproc
-    python -m venv myenv
-    source myenv/bin/activate
-    pip install -r requirements.txt
+git clone https://github.com/cirmuw/fetalfMRIproc.git
+cd fetalfMRIproc
+python -m venv myenv
+source myenv/bin/activate
+pip install -r requirements.txt
 ```
 
 **Optional: Integrating Neuroimaging Tools**
 
 If you wish to use **NiftyReg**, **FSL**, **AFNI**, or **ANTs**, install them separately and update paths in `definitions.py`:
 ```bash
-    FSL_PATH = "/path/to/fsl"
-    AFNI_PATH = "/path/to/afni"
-    ANTS_PATH = "/path/to/ants"
+FSL_PATH = "/path/to/fsl/bin"
+AFNI_PATH = "/path/to/afni/bin"
+ANTS_PATH = "/path/to/ants/bin"
+NIFTYREG_PATH = "/path/to/niftyreg/bin"
 ```
 --- 
 ### How to cite

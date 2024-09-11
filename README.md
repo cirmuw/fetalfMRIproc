@@ -67,10 +67,10 @@ If you wish to use **NiftyReg**, **FSL**, **AFNI**, or **ANTs**, install them se
 
 --- 
 ### How to cite
-If you use this code in your work for preprocessing funtional MRI, performing automated QC, or simulating BOLD signal, please cite the following paper:
+If you use this code in your work for preprocessing funtional MRI, performing automated QC, or simulating BOLD signal, please cite:
 
 
 * [Taymourtash et al. 2024] Athena Taymourtash, Ernst Schwartz, Karl-Heinz Nenning, Roxane Licandro, Patric Kienast, Veronika Hielle, Daniela Prayer, Gregor Kasprian, and Georg Langs (2024). "Measuring the Effects of Motion Corruption in Fetal fMRI". Human Brain Mapping
 
-* [Taymourtash et al. 2023](https://academic.oup.com/cercor/article/33/9/5613/6908756) Taymourtash, A., Schwartz, E., Nenning, K. H., Sobotka, D., Licandro, R., Glatter, S., Diogo, M.C., Golland, P., Grant, E., Prayer, D. Kasprian, G. & Langs, G. (2023). Fetal development of functional thalamocortical and cortico–cortical connectivity. Cerebral Cortex, 33(9), 5613-5624
+* [[Taymourtash et al. 2023](https://academic.oup.com/cercor/article/33/9/5613/6908756)] Taymourtash, A., Schwartz, E., Nenning, K. H., Sobotka, D., Licandro, R., Glatter, S., Diogo, M.C., Golland, P., Grant, E., Prayer, D. Kasprian, G. & Langs, G. (2023). Fetal development of functional thalamocortical and cortico–cortical connectivity. Cerebral Cortex, 33(9), 5613-5624
 

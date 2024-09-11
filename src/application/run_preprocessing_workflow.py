@@ -39,7 +39,7 @@ def main():
     parser.add_argument('--parcellation', required=False, type=str)
     parser.add_argument('--registration-method', required=False, type=str, default="SimpleITK")
     parser.add_argument('--registration-type', required=False, type=str, default='rigid')
-    parser.add_argument('--n4-method', required=False, type=str, default='SimpleITK')
+    parser.add_argument('--n4-method', required=False, type=str, default='sitk3D')
     parser.add_argument('--despiking-method', required=False, type=str, default='Lfit')
     parser.add_argument('--vout-method', required=False, type=str, default='pyToutcount')
     parser.add_argument('--regression-model', required=False, type=str, default='24HMP+8Phys+4GSR')
@@ -81,10 +81,10 @@ def main():
     if not os.path.exists(output_path):
         os.mkdir(output_path)
         
-    # ---------------------- Read Data (!TO-DO: modular) -------------
-    img = load_nifti_data(input_bold)
+    # -------------------------- Read Data --------------------------
+    img = load_nifti_data(input_bold)[0]
     if args.dummy_frames:
-        img = del_dummy_scans(img)
+        img = del_dummy_scans(img, args.dummy_frames)
     
     num_vol = get_num_vols(img)
     
@@ -180,6 +180,7 @@ def main():
     # --------------------- Temporal filtering ---------------------------
     temporal_filter = TemporalFiltering(regressed_bold, tr, lowcut=0.001, highcut=0.01, filter_type=temporal_filter_type, order=5)
     bold_filtered = temporal_filter.apply_filter()
+    
     # --------------------------------------------------------------------
     elapsed_time_total = int(time() - time_0)
     minutes = elapsed_time_total // 60

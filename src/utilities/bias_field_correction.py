@@ -4,6 +4,7 @@ import nibabel as nib
 import SimpleITK as sitk
 import subprocess
 from loguru import logger
+from src.utilities.external_running import ExternalToolRunner
 
 class N4BiasFieldCorrection:
     def __init__(self, bspline_fitting_distance=300, shrink_factor=3, n_iterations=[50, 50, 30, 20], 
@@ -18,23 +19,25 @@ class N4BiasFieldCorrection:
         self.histogram_sharpening_fwhm = histogram_sharpening_fwhm
         self.wiener_noise = wiener_noise
         self.num_histogram_bins = num_histogram_bins
+        self.external = ExternalToolRunner()
         
-    def run_command(self, command):
-        try:
-            subprocess.run(command, shell=True, check=True)
-            print(f"Command executed successfully: {command}")
-        except subprocess.CalledProcessError as e:
-            print(f"Error: {e}")
-            raise
+    #def run_command(self, command):
+    #    try:
+    #        subprocess.run(command, shell=True, env=env, check=True)
+    #        print(f"Command executed successfully: {command}")
+    #    except subprocess.CalledProcessError as e:
+    #        print(f"Error: {e}")
+    #        raise
         
     def _make_4d_mask(self, mask_3d_nii, num_vols):
+        path, _ = os.path.split(mask_3d_nii)
         mask_img = nib.load(mask_3d_nii)
         img = mask_img.get_fdata()
         img_4d = np.repeat(img[..., np.newaxis], num_vols, axis=3)
         img_4d_nii = nib.Nifti1Image(img_4d, mask_img.affine, mask_img.header)
-        temp_mask_4d_path = "temp_mask_4d.nii.gz"
-        nib.save(img_4d_nii, temp_mask_4d_path)
-        return temp_mask_4d_path
+        tmp_mask_4d_path = os.path.join(path, "tmp_mask_4d.nii.gz")
+        nib.save(img_4d_nii, tmp_mask_4d_path)
+        return tmp_mask_4d_path
             
     def run_correction(self, input_nii, mask_nii, output_nii, output_bias_nii=None, method='ANTs4D'):
         """
@@ -50,6 +53,7 @@ class N4BiasFieldCorrection:
         image = sitk.ReadImage(input_nii, sitk.sitkFloat32)
         num_vols = image.GetSize()[3]
         mask_img = nib.load(mask_nii)
+        path, _ = os.path.split(mask_nii)
         
         if method == "ANTs4D":
             
@@ -66,19 +70,17 @@ class N4BiasFieldCorrection:
                 f"-x {mask_nii_4d} "
                 f"-s {self.shrink_factor} "
                 f"-c {'x'.join(map(str, self.n_iterations))} "
-                f"-b {self.bspline_fitting_distance},3 "
-                f"-t {self.histogram_sharpening_fwhm},{self.wiener_noise},{self.num_histogram_bins} "
-                f"-o {output_nii}"
-            )
-            if output_bias_nii:
-                ants_command += f" -o {output_nii},{output_bias_nii}"  
+                f"-b [ {self.bspline_fitting_distance}, 3 ] "
+                f"-t [ {self.histogram_sharpening_fwhm}, {self.wiener_noise}, {self.num_histogram_bins} ] "
+                f"-o [ {output_nii}, {output_bias_nii} ]"
+            )  
                   
-            self.run_command(ants_command)
+            self.external.run_command(ants_command, tool='ants')
             
-            if os.path.exists("temp_mask_4d.nii.gz"):
-                os.remove("temp_mask_4d.nii.gz")
+            if os.path.exists(os.path.join(path, "tmp_mask_4d.nii.gz")):
+                os.remove(os.path.join(path, "tmp_mask_4d.nii.gz"))
             
-        if method == "sitk3D":
+        elif method == "sitk3D":
             bfc_corrector = sitk.N4BiasFieldCorrectionImageFilter()
             bfc_vols = []
             for vol in range(num_vols):

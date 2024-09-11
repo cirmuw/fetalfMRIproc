@@ -2,6 +2,7 @@
 # athena.taymourtash@meduniwien.ac.at
 
 import os, sys, glob
+import shutil
 import subprocess
 import pandas as pd
 import numpy as np
@@ -30,7 +31,7 @@ def load_nifti_data(input_nii):
 def dilate_mask(mask_nii, mask_dil_nii=None, kernel_radius=None, kernel_type=sitk.sitkBall):
     mask = sitk.ReadImage(mask_nii)
     if kernel_radius is not None:
-        kernel_radius = sitk.VectorUInt32([kernel_radius] * mask.GetDimension())
+        kernel_radius = [int(kernel_radius)] * mask.GetDimension()
     mask_dilated = sitk.BinaryDilate(mask, kernelRadius=kernel_radius, kernelType=kernel_type)
     if mask_dil_nii:
         sitk.WriteImage(mask_dilated, mask_dil_nii)

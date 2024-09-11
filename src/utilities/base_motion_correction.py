@@ -5,6 +5,7 @@ import nibabel as nib
 import SimpleITK as sitk
 import subprocess
 from src.utilities.utils import load_nifti_data , get_filenames
+from src.utilities.external_running import ExternalToolRunner
 
 
 class MotionCorrection:
@@ -38,6 +39,7 @@ class MotionCorrection:
         self._warped_slice_sets = {}
         self.motion_corrected_bold = motion_corrected_nii
         self.motion_directory = motion_directory
+        self.external = ExternalToolRunner()
         
     def _get_filenames(self, filepath):
         path, filename = os.path.split(filepath)

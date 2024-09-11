@@ -3,6 +3,13 @@ A Python-based, open-source toolkit for the analysis of in-utero fetal resting-s
 
 If you have any questions or comments, please drop an email to `georg.langs@meduniwien.ac.at`.
 
+### Key Features
+
+* **Modular Preprocessing Pipeline**: Bias field correction, motion correction, despiking, volume outlier rejection, nuisance regression, and temporal filtering.
+* Quality Control: Automated and manual QC tools.
+* Connectivity Analysis: Extracts ROI time series and performs functional connectivity analysis.
+* Hemodynamic Response Simulation.
+* Optional Integration: Compatible with FSL, AFNI, and ANTs if installed (see below for details).
 
 ### Usage
 Run the preprocessing workflow from the command line with the following syntax:

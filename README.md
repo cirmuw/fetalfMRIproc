@@ -1,5 +1,9 @@
 # Fetal rs-fMRI
-custom workflow for in-utero resting-state fMRI analysis, including preprocessing, quality control, and simulation the hemodynamic response function
+A Python-based, open-source toolkit for the analysis of in-utero fetal resting-state fMRI (rs-fMRI) data. This toolkit provides a flexible, modular workflow for preprocessing, quality control, simulation, and connectivity analysis, with optional integration of external neuroimaging tools like FSL, AFNI, and ANTs. 
+
+If you have any questions or comments, please drop an email to `georg.langs@meduniwien.ac.at`.
+
+
 ### Usage
 Run the preprocessing workflow from the command line with the following syntax:
 ```bash
